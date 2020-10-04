@@ -117,7 +117,7 @@ int main(int argc, char** argv) {
 	outfile << "reg [" << n-1 << ":0] a, b;" << endl;
 	outfile << "wire [" << n-1 << ":0] c;" << endl;
 	outfile << "wire cout;" << endl << endl;
-	outfile << "CRA A(a, b, c, cout);" << endl << endl;
+	outfile << module << " A(a, b, c, cout);" << endl << endl;
 
 	outfile << "initial" << endl;
 	outfile << "begin" << endl;
