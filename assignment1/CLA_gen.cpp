@@ -30,7 +30,7 @@ int main(int argc, char** argv) {
 	}
 
 	// This is the number of reduction stages required
-	int num_stages = log2(n);
+	int num_stages = log2(n) + 1;
 
 	// Print the status module
 	// The status module generates the status initially
