@@ -37,8 +37,8 @@ int main(int argc, char** argv) {
 	outfile << "module status(a, b, st);" << endl;
 	outfile << "input a, b;" << endl;
 	outfile << "output [1:0] st;" << endl;
-	outfile << "assign #1 st[1] = a & b;" << endl;
-	outfile << "assign #1 st[0] = a | b;" << endl;
+	outfile << "assign #2 st[1] = a & b;" << endl;
+	outfile << "assign #2 st[0] = a | b;" << endl;
 	outfile << "endmodule" << endl;
 
 	outfile << endl;

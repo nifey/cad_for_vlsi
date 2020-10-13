@@ -20,11 +20,29 @@ cat $1 |\
 	}' | wc -l
 
 echo "Getting latency information"
-echo -n "Average latency : "
 cat $1 |\
 	egrep "^[ \t]*[0-9]+0000000" -B1 |\
 	sed '
 	/^[ \t]*[0-9]\+0000000/d;
 	/^--$/d;
+	/^[ \t]*0/d;
 	s/^[ \t]*\([0-9]\+\)/\1/' |\
-	awk '{sum += $1%10000} END {print sum/NR}'
+	awk '
+	BEGIN {
+		min = 99999;
+		max = 0;
+	}
+	{
+		if ($1%10000000 < min) {
+			min = $1%10000000;
+		}
+		if ($1%10000000 > max) {
+			max = $1%10000000;
+		}
+		sum += $1%10000000
+	}
+	END {
+		printf("Min latency: %d\n", min);
+		printf("Max latency: %d\n", max);
+		printf("Avg latency: %f\n", sum/NR);
+	}'

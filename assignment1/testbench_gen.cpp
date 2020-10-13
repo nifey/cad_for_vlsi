@@ -1,5 +1,5 @@
 #define INTERVAL 10000000
-#define MAX_TESTCASES 10000
+#define MAX_TESTCASES 100000
 
 #include<iostream>
 #include<fstream>

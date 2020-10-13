@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
 	outfile << "input a,b,cin;" << endl;
 	outfile << "output s, cout;" << endl;
 	outfile << "assign #6 s = a^b^cin;" << endl;
-	outfile << "assign #2 cout = (a&b) | (b&cin) | (cin&a);" << endl;
+	outfile << "assign #4 cout = (a&b) | (b&cin) | (cin&a);" << endl;
 	outfile << "endmodule" << endl;
 
 	outfile << endl;
