@@ -60,7 +60,7 @@ int main(int argc, char** argv) {
 	outfile << "output [" << n-1 << ":0] c;" << endl;
 	outfile << "output cout;" << endl;
 
-	// We need n-1 carry wires to interconnect the adders
+	// We need (num_stages + 1) wire arrays to hold intermediate status values during reduction
 	outfile << "wire [1:0] ";
 	for (int i=0; i <= num_stages ; i++) {
 		outfile << "st" << i << "[" << n-1 << ":0]";

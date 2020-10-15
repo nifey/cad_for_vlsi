@@ -10,10 +10,13 @@ then
 fi
 
 mkdir output
+
+# Compiling generators
 g++ CRA_gen.cpp -o o_cra
 g++ CLA_gen.cpp -o o_cla
 g++ testbench_gen.cpp -o o_test
 
+# Generating verilog code
 ./o_cra $1 output/CRA.v
 ./o_cla $1 output/CLA.v
 ./o_test $1 output/cra_testbench.v CRA
@@ -22,6 +25,7 @@ rm o_cra o_cla o_test
 
 cd output
 
+# Running adders
 echo 'Running CRA testbench'
 iverilog cra_testbench.v
 ./a.out > cra_results
@@ -32,9 +36,12 @@ iverilog cla_testbench.v
 
 rm a.out
 
-echo 'Analysing CRA results'
+# Analysing adder outputs
+echo '>> Analysing CRA results'
 bash ../analyse.sh cra_results
-echo 'Analysing CLA results'
+echo '>> Analysing CLA results'
 bash ../analyse.sh cla_results
+
+echo 'The generated verilog code is present in output directory'
 
 cd ..

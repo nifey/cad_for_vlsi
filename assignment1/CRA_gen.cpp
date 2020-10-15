@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
 	outfile << "output [" << n-1 << ":0] c;" << endl;
 	outfile << "output cout;" << endl;
 
-	// We need n-1 carry wires to interconnect the adders
+	// We need n-2 carry wires to interconnect the adders
 	outfile << "wire ";
 	for (int i=0; i < n-1 ; i++) {
 		outfile << "carry" << i;
