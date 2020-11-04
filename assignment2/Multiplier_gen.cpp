@@ -150,20 +150,21 @@ class PartialProduct {
 		}
 };
 
-void print_multiplier(int n, ofstream& outfile) {
+void print_multiplier(int n, int k, ofstream& outfile) {
 	// This function prints the wallace tree multiplier
 
 	int id;
 	list<PartialProduct> values;
 
-	outfile << "module Multiplier (a, b, c);" << endl;
+	outfile << "module Multiplier (a, b, c, clk);" << endl;
 	outfile << "input [" << n-1 << ":0] a, b;" << endl;
+	outfile << "input clk;" << endl;
 	outfile << "output [" << 2*n-1 << ":0] c;" << endl;
 	outfile << endl;
 
 	// Calculate partial products
 	id = 0;
-	outfile << "wire [" << n-1 << ":0] ";
+	outfile << "reg [" << n-1 << ":0] ";
 	for(int i=0; i<n; i++) {
 		outfile << "l0_"<< id;
 		if (i != n-1) {
@@ -175,99 +176,132 @@ void print_multiplier(int n, ofstream& outfile) {
 		id++;
 	}
 	outfile << endl << endl;
+
+	outfile << "always @(posedge clk)" << endl;
+	outfile << "begin" << endl;
 	for(int i=0; i<n; i++) {
 		for(int j=0; j<n; j++) {
-			outfile << "assign #2 l0_"<<  i << "[" << j << "] = a[" << j << "] & b[" << i << "];" << endl;
+			outfile << "\tl0_"<<  i << "[" << j << "] <= #2 a[" << j << "] & b[" << i << "];" << endl;
 		}
 		outfile << endl;
 	}
+	outfile << "end" << endl << endl;
 
 	// Add the intermediate CSAs for all level
 	int level = 1;
 	while (values.size() > 2) {
-		id = 0;
-		int num_csa = values.size()/3;
-		int remaining = values.size() % 3;
+		while (values.size() > 2) {
+			id = 0;
+			int num_csa = values.size()/3;
+			int remaining = values.size() % 3;
+			char src_name = (level % k == 1)? 'l': 'w';
+			char dst_name = 'w';
 
-		while (num_csa--) {
-			// Take three values of previous level and combine using a CSA
-			PartialProduct a, b, c;
-			c = values.front();
-			values.pop_front();
-			b = values.front();
-			values.pop_front();
-			a = values.front();
-			values.pop_front();
+			while (num_csa--) {
+				// Take three values of previous level and combine using a CSA
+				PartialProduct a, b, c;
+				c = values.front();
+				values.pop_front();
+				b = values.front();
+				values.pop_front();
+				a = values.front();
+				values.pop_front();
 
-			if (a.level != b.level || b.level != c.level) {
-				cout << "Error: Levels are different" << endl;
+				if (a.level != b.level || b.level != c.level) {
+					cout << "Error: Levels are different" << endl;
+				}
+
+				int alen, blen, clen, min_shift;
+				min_shift = a.shift;
+				if (b.shift < c.shift && b.shift < min_shift) {
+					min_shift = b.shift;
+				} else if (c.shift < b.shift && c.shift < min_shift) {
+					min_shift = c.shift;
+				}
+
+				alen = a.length + (a.shift - min_shift);
+				blen = b.length + (b.shift - min_shift);
+				clen = c.length + (c.shift - min_shift);
+
+				if (!(alen >= blen && blen >= clen)) {
+					cout << "Error: Length not in sorted order" << endl;
+				}
+
+				if (level % k == 0 || values.size() == 0) {
+					// Declare pipeline registers
+					outfile << "reg ["<< alen-1 <<":0] l" << level << "_" << id << ";" << endl;
+					outfile << "reg ["<< blen-1 <<":0] l" << level << "_" << id+1 << ";" << endl;
+				}
+				outfile << "wire ["<< alen-1 <<":0] w" << level << "_" << id << ";" << endl;
+				outfile << "wire ["<< blen-1 <<":0] w" << level << "_" << id+1 << ";" << endl;
+				outfile << "CSA #(" << alen << ", " << blen << ", " << clen << ") csa"<< level << "_" <<  num_csa << " (";
+
+				if (a.shift > min_shift) {
+					outfile << "{" << src_name << a.level << "_" << a.id << ", "<< a.shift - min_shift <<"'b0}, ";
+				} else {
+					outfile << src_name << a.level << "_" << a.id << ", ";
+				}
+
+				if (b.shift > min_shift) {
+					outfile << "{" << src_name << b.level << "_" << b.id << ", "<< b.shift - min_shift <<"'b0}, ";
+				} else {
+					outfile << src_name << b.level << "_" << b.id << ", ";
+				}
+
+				if (c.shift > min_shift) {
+					outfile << "{" << src_name << c.level << "_" << c.id << ", "<< c.shift - min_shift <<"'b0}, ";
+				} else {
+					outfile << src_name << c.level << "_" << c.id << ", ";
+				}
+
+				outfile << dst_name << level << "_" << id << ", ";
+				outfile << dst_name << level << "_" << id + 1;
+				outfile << ");" << endl << endl;
+
+				if (alen >= blen + 1) {
+					values.push_back(PartialProduct(level, id+1, blen, min_shift+1));
+					values.push_back(PartialProduct(level, id, alen, min_shift));
+				} else {
+					values.push_back(PartialProduct(level, id, alen, min_shift));
+					values.push_back(PartialProduct(level, id+1, blen, min_shift+1));
+				}
+				id = id + 2;
 			}
 
-			int alen, blen, clen, min_shift;
-			min_shift = a.shift;
-			if (b.shift < c.shift && b.shift < min_shift) {
-				min_shift = b.shift;
-			} else if (c.shift < b.shift && c.shift < min_shift) {
-				min_shift = c.shift;
+			while (remaining--) {
+				// The remaining values have to be send to next level as it is
+				PartialProduct a = values.front();
+				values.pop_front();
+
+				char src_name = (level % k == 1)? 'l': 'w';
+				char dst_name = 'w';
+
+				if (level % k == 0) {
+					// Declare pipeline registers
+					outfile << "reg ["<< a.length-1 <<":0] l" << level << "_" << id << ";" << endl;
+				}
+				outfile << "wire ["<< a.length-1 <<":0] w" << level << "_" << id << ";" << endl;
+				outfile << "assign w" << level << "_" << id << " = " << src_name << a.level << "_" << a.id << ";" << endl << endl;
+				a.level = level;
+				a.id = id;
+
+				id += 1;
+				values.push_back(a);
 			}
 
-			alen = a.length + (a.shift - min_shift);
-			blen = b.length + (b.shift - min_shift);
-			clen = c.length + (c.shift - min_shift);
-
-			if (!(alen >= blen && blen >= clen)) {
-				cout << "Error: Length not in sorted order" << endl;
+			if (level % k == 0) {
+				break;
 			}
-
-			outfile << "wire ["<< alen-1 <<":0] l" << level << "_" << id << ";" << endl;
-			outfile << "wire ["<< blen-1 <<":0] l" << level << "_" << id+1 << ";" << endl;
-			outfile << "CSA #(" << alen << ", " << blen << ", " << clen << ") csa"<< level << "_" <<  num_csa << " (";
-
-			if (a.shift > min_shift) {
-				outfile << "{l" << a.level << "_" << a.id << ", "<< a.shift - min_shift <<"'b0}, ";
-			} else {
-				outfile << "l" << a.level << "_" << a.id << ", ";
-			}
-
-			if (b.shift > min_shift) {
-				outfile << "{l" << b.level << "_" << b.id << ", "<< b.shift - min_shift <<"'b0}, ";
-			} else {
-				outfile << "l" << b.level << "_" << b.id << ", ";
-			}
-
-			if (c.shift > min_shift) {
-				outfile << "{l" << c.level << "_" << c.id << ", "<< c.shift - min_shift <<"'b0}, ";
-			} else {
-				outfile << "l" << c.level << "_" << c.id << ", ";
-			}
-
-			outfile << "l" << level << "_" << id << ", ";
-			outfile << "l" << level << "_" << id + 1;
-			outfile << ");" << endl << endl;
-
-			if (alen >= blen + 1) {
-				values.push_back(PartialProduct(level, id+1, blen, min_shift+1));
-				values.push_back(PartialProduct(level, id, alen, min_shift));
-			} else {
-				values.push_back(PartialProduct(level, id, alen, min_shift));
-				values.push_back(PartialProduct(level, id+1, blen, min_shift+1));
-			}
-			id = id + 2;
+			level++;
 		}
 
-		while (remaining--) {
-			// The remaining values have to be send to next level as it is
-			PartialProduct a = values.front();
-			values.pop_front();
-
-			outfile << "wire ["<< a.length-1 <<":0] l" << level << "_" << id << ";" << endl;
-			outfile << "assign l" << level << "_" << id << " = l" << a.level << "_" << a.id << ";" << endl << endl;
-			a.level = level;
-			a.id = id;
-
-			id += 1;
-			values.push_back(a);
+		// After every K levels of the Wallace tree multiplier we need a pipeline register
+		outfile << "always @(posedge clk)" << endl;
+		outfile << "begin" << endl;
+		for (int i=0; i<id; i++) {
+			outfile << "\tl" << level << "_"<< i << " <= w" << level << "_" << i << ";" << endl;
 		}
+		outfile << "end" << endl << endl;
 
 		level++;
 	}
@@ -349,7 +383,7 @@ int main(int argc, char** argv) {
 	print_cla(2*n, outfile);
 	
 	// Print the Multiplier module
-	print_multiplier(n, outfile);
+	print_multiplier(n, k, outfile);
 
 	// Close the output file
 	outfile.close();
