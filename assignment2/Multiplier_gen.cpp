@@ -14,6 +14,7 @@ int log2(int n) {
 
 void print_csa(ofstream& outfile) {
 	// This function prints the parameterized Carry Save adder into the file
+	// The delay of CSA is 6 units
 	outfile << "module CSA(a, b, c, sum, carry);" << endl;
 	outfile << "parameter ALEN = 8;" << endl;
 	outfile << "parameter BLEN = 8;" << endl;
@@ -47,8 +48,9 @@ void print_csa(ofstream& outfile) {
 	outfile << endl;
 }
 
-void print_cla(int n, ofstream& outfile) {
+int print_cla(int n, ofstream& outfile) {
 	// This function prints the CLA for n bits into the file
+	// It returns the delay of the CLA
 	
 	// This is the number of reduction stages required
 	int num_stages = log2(n);
@@ -123,6 +125,9 @@ void print_cla(int n, ofstream& outfile) {
 	outfile << endl;
 
 	outfile << "endmodule" << endl << endl;
+
+	// Delay is Delay(status) + num_stages * Delay(Reduce) + 6 (for final addition)
+	return 2 + num_stages*2 + 6;
 }
 
 // This class is used to track the length of bits of each partial value
@@ -150,10 +155,12 @@ class PartialProduct {
 		}
 };
 
-void print_multiplier(int n, int k, ofstream& outfile) {
+int print_multiplier(int n, int k, ofstream& outfile) {
 	// This function prints the wallace tree multiplier
+	// It returns the number of pipeline stages in the Wallace tree
+	// multiplier excluding the first (partial products) and last stage (CLA)
 
-	int id;
+	int id, num_bits_in_reg = 0, num_stages = 0;
 	list<PartialProduct> values;
 
 	outfile << "module Multiplier (a, b, c, clk);" << endl;
@@ -165,6 +172,7 @@ void print_multiplier(int n, int k, ofstream& outfile) {
 	// Calculate partial products
 	id = 0;
 	outfile << "reg [" << n-1 << ":0] ";
+	num_bits_in_reg += n * n;
 	for(int i=0; i<n; i++) {
 		outfile << "l0_"<< id;
 		if (i != n-1) {
@@ -190,6 +198,7 @@ void print_multiplier(int n, int k, ofstream& outfile) {
 	// Add the intermediate CSAs for all level
 	int level = 1;
 	while (values.size() > 2) {
+		num_stages ++;
 		while (values.size() > 2) {
 			id = 0;
 			int num_csa = values.size()/3;
@@ -231,6 +240,8 @@ void print_multiplier(int n, int k, ofstream& outfile) {
 					// Declare pipeline registers
 					outfile << "reg ["<< alen-1 <<":0] l" << level << "_" << id << ";" << endl;
 					outfile << "reg ["<< blen-1 <<":0] l" << level << "_" << id+1 << ";" << endl;
+					num_bits_in_reg += alen;
+					num_bits_in_reg += blen;
 				}
 				outfile << "wire ["<< alen-1 <<":0] w" << level << "_" << id << ";" << endl;
 				outfile << "wire ["<< blen-1 <<":0] w" << level << "_" << id+1 << ";" << endl;
@@ -279,6 +290,7 @@ void print_multiplier(int n, int k, ofstream& outfile) {
 				if (level % k == 0) {
 					// Declare pipeline registers
 					outfile << "reg ["<< a.length-1 <<":0] l" << level << "_" << id << ";" << endl;
+					num_bits_in_reg += a.length;
 				}
 				outfile << "wire ["<< a.length-1 <<":0] w" << level << "_" << id << ";" << endl;
 				outfile << "assign w" << level << "_" << id << " = " << src_name << a.level << "_" << a.id << ";" << endl << endl;
@@ -289,7 +301,7 @@ void print_multiplier(int n, int k, ofstream& outfile) {
 				values.push_back(a);
 			}
 
-			if (level % k == 0) {
+			if (level % k == 0 || values.size() == 2) {
 				break;
 			}
 			level++;
@@ -307,6 +319,10 @@ void print_multiplier(int n, int k, ofstream& outfile) {
 	}
 
 	// Add the CLA for the final stage
+	outfile << "reg [" << 2*n-1 << ":0] l_out;" << endl;
+	outfile << "wire [" << 2*n-1 << ":0] w_out;" << endl;
+	num_bits_in_reg += 2*n;
+
 	PartialProduct a, b;
 	a = values.front();
 	values.pop_front();
@@ -352,9 +368,22 @@ void print_multiplier(int n, int k, ofstream& outfile) {
 		outfile << ", ";
 	}
 
-	outfile << "c);" << endl;
+	outfile << "w_out);" << endl;
+
+	outfile << "always @(posedge clk)" << endl;
+	outfile << "begin" << endl;
+	outfile << "\tl_out <= w_out;" << endl;
+	outfile << "end" << endl << endl;;
+
+	outfile << "assign c = l_out;" << endl << endl;
 	
 	outfile << "endmodule" << endl;
+
+	cout << "Number of bits stored in registers: " << num_bits_in_reg << endl;
+
+	// Return the number of stages
+	// + 1 indicates the CLA stage
+	return num_stages + 1;
 }
 
 int main(int argc, char** argv) {
@@ -380,10 +409,14 @@ int main(int argc, char** argv) {
 	print_csa(outfile);
 	
 	// Print the CLA required
-	print_cla(2*n, outfile);
+	int cla_delay = print_cla(2*n, outfile);
+	cout << "Delay of " << 2*n << " Bit CLA is " << cla_delay << endl;
 	
 	// Print the Multiplier module
-	print_multiplier(n, k, outfile);
+	int mult_stages = print_multiplier(n, k, outfile);
+	cout << "Number of a pipeline stages in multiplier is " << mult_stages << endl;
+	// The pipeline stage delay is the max of cla_delay and Wallace Tree pipeline stage delay
+	cout << "Max pipeline stage delay is " << (cla_delay > (((k * 6) + 2))? cla_delay : ((k * 6) + 2)) << endl;
 
 	// Close the output file
 	outfile.close();
