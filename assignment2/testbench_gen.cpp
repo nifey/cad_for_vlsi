@@ -1,5 +1,4 @@
-#define INTERVAL 10000000
-#define MAX_TESTCASES 1000
+#define MAX_TESTCASES 10
 
 #include<iostream>
 #include<fstream>
@@ -22,12 +21,17 @@ string rand_hex(int n) {
 }
 
 int main(int argc, char** argv) {
-	if (argc < 3) {
-		cout << "Usage: ./a.out n output_filename" << endl;
+	if (argc < 5) {
+		cout << "Usage: ./a.out n cycle_time num_stages output_filename" << endl;
 		return 0;
 	}
 	int n = atoi(argv[1]);
-	string filename(argv[2]);
+	int cycle_time = atoi(argv[2]);
+	if (cycle_time % 2 == 1) {
+		cycle_time ++;
+	}
+	int num_stages = atoi(argv[3]);
+	string filename(argv[4]);
 	cout << "Generating testbench for Multiplier of " << n << " bits" << endl;
 	cout << "Output file: " << filename << endl;
 
@@ -46,7 +50,14 @@ int main(int argc, char** argv) {
 	outfile << "module testbench;" << endl;
 	outfile << "reg [" << n-1 << ":0] a, b;" << endl;
 	outfile << "wire [" << 2*n-1 << ":0] c;" << endl;
-	outfile << "Multiplier m(a, b, c);" << endl << endl;
+	outfile << "reg clk;" << endl;
+	outfile << "Multiplier m(a, b, c, clk);" << endl << endl;
+
+	outfile << "initial" << endl;
+	outfile << "begin" << endl;
+	outfile << "\tclk = 0;" << endl;
+	outfile << "end" << endl;
+	outfile << "always #" << (cycle_time/2) << " clk = ~clk;"  << endl;
 
 	outfile << "initial" << endl;
 	outfile << "begin" << endl;
@@ -54,26 +65,25 @@ int main(int argc, char** argv) {
 	srand((unsigned) time(NULL));
 	int count = 0;
 
+	outfile << "\t#1 a=" << n << "'h0;b=" << n << "'h0;" << endl;
 	// Generate MAX_TESTCASES number of testcases
 	if (n < 4) {
 		while (count < MAX_TESTCASES) {
-			outfile << "\t#" << INTERVAL << " a=" << n << "'h" << ('0' + rand()%(1<<n)) << ";b=" << n << "'h" << ('0' + rand()%(1<<n)) << ";" << endl;
+			outfile << "\t#" << cycle_time << " a=" << n << "'h" << ('0' + rand()%(1<<n)) << ";b=" << n << "'h" << ('0' + rand()%(1<<n)) << ";" << endl;
 			count++;
 		}
 	} else {
 		while (count < MAX_TESTCASES) {
-			outfile << "\t#" << INTERVAL << " a=" << n << "'h" << rand_hex(n/4) << ";b=" << n << "'h" << rand_hex(n/4) << ";" << endl;
+			outfile << "\t#" << cycle_time << " a=" << n << "'h" << rand_hex(n/4) << ";b=" << n << "'h" << rand_hex(n/4) << ";" << endl;
 			count++;
 		}
 	}
 
+	outfile << "\t#" << cycle_time * num_stages << " $finish;" << endl;
 	outfile << "end" << endl << endl;
 
 	// Create a monitor on the wires
-	outfile << "initial" << endl;
-	outfile << "begin" << endl;
-	outfile << "\t$monitor($time, \" %h x %h = %h\", a, b, c);" << endl;
-	outfile << "end" << endl << endl;
+	outfile << "always #" << (cycle_time/2) << " $display($time, \" %h x %h = %h\", a, b, c);" << endl;
 
 	// End module
 	outfile << "endmodule" << endl;

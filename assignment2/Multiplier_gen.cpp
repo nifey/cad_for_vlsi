@@ -169,12 +169,19 @@ int print_multiplier(int n, int k, ofstream& outfile) {
 	outfile << "output [" << 2*n-1 << ":0] c;" << endl;
 	outfile << endl;
 
+	num_bits_in_reg += 2 * n;
+	outfile << "reg [" << n-1 << ":0] ra, rb;";
+	outfile << "always @(posedge clk)" << endl;
+	outfile << "begin" << endl;
+	outfile << "\tra <= a;" << endl;
+	outfile << "\trb <= b;" << endl;
+	outfile << "end" << endl << endl;
+
 	// Calculate partial products
 	id = 0;
-	outfile << "reg [" << n-1 << ":0] ";
-	num_bits_in_reg += n * n;
+	outfile << "wire [" << n-1 << ":0] ";
 	for(int i=0; i<n; i++) {
-		outfile << "l0_"<< id;
+		outfile << "w0_"<< id;
 		if (i != n-1) {
 			outfile << ", ";
 		} else {
@@ -185,15 +192,13 @@ int print_multiplier(int n, int k, ofstream& outfile) {
 	}
 	outfile << endl << endl;
 
-	outfile << "always @(posedge clk)" << endl;
-	outfile << "begin" << endl;
 	for(int i=0; i<n; i++) {
 		for(int j=0; j<n; j++) {
-			outfile << "\tl0_"<<  i << "[" << j << "] <= #2 a[" << j << "] & b[" << i << "];" << endl;
+			outfile << "assign #2 w0_"<<  i << "[" << j << "] = ra[" << j << "] & rb[" << i << "];" << endl;
 		}
 		outfile << endl;
 	}
-	outfile << "end" << endl << endl;
+	outfile << endl;
 
 	// Add the intermediate CSAs for all level
 	int level = 1;
@@ -203,7 +208,7 @@ int print_multiplier(int n, int k, ofstream& outfile) {
 			id = 0;
 			int num_csa = values.size()/3;
 			int remaining = values.size() % 3;
-			char src_name = (level % k == 1)? 'l': 'w';
+			char src_name = (level != 1 && level % k == 1)? 'l': 'w';
 			char dst_name = 'w';
 
 			while (num_csa--) {
@@ -284,7 +289,7 @@ int print_multiplier(int n, int k, ofstream& outfile) {
 				PartialProduct a = values.front();
 				values.pop_front();
 
-				char src_name = (level % k == 1)? 'l': 'w';
+				char src_name = (level != 1 && level % k == 1)? 'l': 'w';
 				char dst_name = 'w';
 
 				if (level % k == 0) {
@@ -379,7 +384,7 @@ int print_multiplier(int n, int k, ofstream& outfile) {
 	
 	outfile << "endmodule" << endl;
 
-	cout << "Number of bits stored in registers: " << num_bits_in_reg << endl;
+	cout << "Number of bits stored in registers:" << num_bits_in_reg << endl;
 
 	// Return the number of stages
 	// + 1 indicates the CLA stage
@@ -414,9 +419,10 @@ int main(int argc, char** argv) {
 	
 	// Print the Multiplier module
 	int mult_stages = print_multiplier(n, k, outfile);
-	cout << "Number of a pipeline stages in multiplier is " << mult_stages << endl;
+	cout << "Number of pipeline stages in multiplier:" << mult_stages << endl;
 	// The pipeline stage delay is the max of cla_delay and Wallace Tree pipeline stage delay
-	cout << "Max pipeline stage delay is " << (cla_delay > (((k * 6) + 2))? cla_delay : ((k * 6) + 2)) << endl;
+	// The Wallace tree pipeline stage delay is (k * CSA_Delay) + Delay_to_calculate_partial_products
+	cout << "Max pipeline stage delay:" << (cla_delay > (((k * 6) + 2))? cla_delay : ((k * 6) + 2)) << endl;
 
 	// Close the output file
 	outfile.close();

@@ -16,8 +16,8 @@ g++ Multiplier_gen.cpp -o o_mult
 g++ testbench_gen.cpp -o o_test
 
 # Generating verilog code
-./o_mult $1 $2 output/Multiplier.v
-./o_test $1 output/testbench.v
+./o_mult $1 $2 output/Multiplier.v > output/mult_info
+./o_test $1 `cat output/mult_info | grep "Max pipeline stage delay" | cut -d: -f2` `cat output/mult_info | grep "Number of pipeline stages" | cut -d: -f2` output/testbench.v
 rm o_mult o_test
 
 cd output
@@ -30,7 +30,7 @@ rm a.out
 
 # Analysing adder outputs
 echo '>> Analysing results'
-bash ../analyse.sh results
+bash ../analyse.sh results `cat mult_info | grep "Number of pipeline stages" | cut -d: -f2`
 
 echo 'The generated verilog code is present in output directory'
 
