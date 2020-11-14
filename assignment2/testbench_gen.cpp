@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
 	outfile << "begin" << endl;
 	outfile << "\tclk = 0;" << endl;
 	outfile << "end" << endl;
-	outfile << "always #" << (cycle_time/2) << " clk = ~clk;"  << endl;
+	outfile << "always #" << (cycle_time/2) << " clk = ~clk;"  << endl << endl;
 
 	outfile << "initial" << endl;
 	outfile << "begin" << endl;

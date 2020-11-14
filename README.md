@@ -10,7 +10,4 @@ The objectives of this assignment are:
 
 The objectives of this assignment is:
 - To write a C++ code that generates a Parameterized Pipelined Wallace tree multiplier
-
-## Instructions
-
-Install iverilog
+- To study the effects of pipelining on Latency, throughput and area.

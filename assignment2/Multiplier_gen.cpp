@@ -397,7 +397,7 @@ int print_multiplier(int n, int k, ofstream& outfile) {
 		outfile << ", ";
 	}
 
-	outfile << "w_out);" << endl;
+	outfile << "w_out);" << endl << endl;
 
 	outfile << "always @(posedge clk)" << endl;
 	outfile << "begin" << endl;

@@ -6,7 +6,6 @@ Details of the files:
 3. testbench_gen.cpp : C++ code that generates testbench
 4. run.sh : Bash script to generate the CLA, CRA, testbench and run them
 5. analyse.sh : Bash script to check if the adder outputs are correct and also find the average latency of the adders
-6. 8_adder : Folder containing the generated CLA, CRA, testbench verilog code for an 8 bit adder
 
 ## Instruction for running the code
 
