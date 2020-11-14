@@ -53,6 +53,7 @@ int main(int argc, char** argv) {
 	outfile << "reg clk;" << endl;
 	outfile << "Multiplier m(a, b, c, clk);" << endl << endl;
 
+	// Declare clk signal
 	outfile << "initial" << endl;
 	outfile << "begin" << endl;
 	outfile << "\tclk = 0;" << endl;
@@ -79,7 +80,7 @@ int main(int argc, char** argv) {
 		}
 	}
 
-	outfile << "\t#" << cycle_time * num_stages << " $finish;" << endl;
+	outfile << "\t#" << cycle_time * (num_stages + 1) << " $finish;" << endl;
 	outfile << "end" << endl << endl;
 
 	// Create a monitor on the wires

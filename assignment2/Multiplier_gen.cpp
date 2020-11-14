@@ -1,6 +1,7 @@
 #include<iostream>
 #include<fstream>
-#include<list>
+#include<vector>
+#include<queue>
 using namespace std;
 
 // Function to find the log to base 2
@@ -155,13 +156,29 @@ class PartialProduct {
 		}
 };
 
+// This comparator class is used to order the PartialProducts based on level
+// and length in the priority queue
+class Comparator {
+	public:
+		int operator() (const PartialProduct& p1, const PartialProduct& p2) {
+			if (p1.level == p2.level) {
+				return p1.length + p1.shift > p2.length + p2.shift;
+			} else {
+				return p1.level > p2.level;
+			}
+		}
+};
+
 int print_multiplier(int n, int k, ofstream& outfile) {
 	// This function prints the wallace tree multiplier
-	// It returns the number of pipeline stages in the Wallace tree
-	// multiplier excluding the first (partial products) and last stage (CLA)
+	// It returns the max delay of pipeline stages (excluding the CLA stage)
+
+	// Naming convention used:
+	// Pipeline registers have prefix 'l'
+	// Wires have prefix 'w'
 
 	int id, num_bits_in_reg = 0, num_stages = 0;
-	list<PartialProduct> values;
+	priority_queue<PartialProduct, vector<PartialProduct>, Comparator> values;
 
 	outfile << "module Multiplier (a, b, c, clk);" << endl;
 	outfile << "input [" << n-1 << ":0] a, b;" << endl;
@@ -170,7 +187,7 @@ int print_multiplier(int n, int k, ofstream& outfile) {
 	outfile << endl;
 
 	num_bits_in_reg += 2 * n;
-	outfile << "reg [" << n-1 << ":0] ra, rb;";
+	outfile << "reg [" << n-1 << ":0] ra, rb;" << endl;
 	outfile << "always @(posedge clk)" << endl;
 	outfile << "begin" << endl;
 	outfile << "\tra <= a;" << endl;
@@ -187,7 +204,7 @@ int print_multiplier(int n, int k, ofstream& outfile) {
 		} else {
 			outfile << ";";
 		}
-		values.push_back(PartialProduct(0, id, n, id));
+		values.push(PartialProduct(0, id, n, id));
 		id++;
 	}
 	outfile << endl << endl;
@@ -208,18 +225,22 @@ int print_multiplier(int n, int k, ofstream& outfile) {
 			id = 0;
 			int num_csa = values.size()/3;
 			int remaining = values.size() % 3;
-			char src_name = (level != 1 && level % k == 1)? 'l': 'w';
+
+			// src_name is used to decide if a stage should read from registers or wires
+			// We read from registers if the stage is the first stage after a pipeline register
+			// or if K == 1 in which case every stage will read from pipeline registers
+			char src_name = (!(level == 1) && ((level % k == 1) || (k == 1)))? 'l': 'w';
 			char dst_name = 'w';
 
 			while (num_csa--) {
 				// Take three values of previous level and combine using a CSA
 				PartialProduct a, b, c;
-				c = values.front();
-				values.pop_front();
-				b = values.front();
-				values.pop_front();
-				a = values.front();
-				values.pop_front();
+				c = values.top();
+				values.pop();
+				b = values.top();
+				values.pop();
+				a = values.top();
+				values.pop();
 
 				if (a.level != b.level || b.level != c.level) {
 					cout << "Error: Levels are different" << endl;
@@ -274,23 +295,15 @@ int print_multiplier(int n, int k, ofstream& outfile) {
 				outfile << dst_name << level << "_" << id + 1;
 				outfile << ");" << endl << endl;
 
-				if (alen >= blen + 1) {
-					values.push_back(PartialProduct(level, id+1, blen, min_shift+1));
-					values.push_back(PartialProduct(level, id, alen, min_shift));
-				} else {
-					values.push_back(PartialProduct(level, id, alen, min_shift));
-					values.push_back(PartialProduct(level, id+1, blen, min_shift+1));
-				}
+				values.push(PartialProduct(level, id, alen, min_shift));
+				values.push(PartialProduct(level, id+1, blen, min_shift+1));
 				id = id + 2;
 			}
 
 			while (remaining--) {
 				// The remaining values have to be send to next level as it is
-				PartialProduct a = values.front();
-				values.pop_front();
-
-				char src_name = (level != 1 && level % k == 1)? 'l': 'w';
-				char dst_name = 'w';
+				PartialProduct a = values.top();
+				values.pop();
 
 				if (level % k == 0) {
 					// Declare pipeline registers
@@ -303,7 +316,7 @@ int print_multiplier(int n, int k, ofstream& outfile) {
 				a.id = id;
 
 				id += 1;
-				values.push_back(a);
+				values.push(a);
 			}
 
 			if (level % k == 0 || values.size() == 2) {
@@ -323,16 +336,21 @@ int print_multiplier(int n, int k, ofstream& outfile) {
 		level++;
 	}
 
+	if (num_stages == 1 && level - 1 < k) {
+		k = level - 1;
+	}
+
 	// Add the CLA for the final stage
 	outfile << "reg [" << 2*n-1 << ":0] l_out;" << endl;
 	outfile << "wire [" << 2*n-1 << ":0] w_out;" << endl;
 	num_bits_in_reg += 2*n;
 
+	// Connect the last two values to the CLA
 	PartialProduct a, b;
-	a = values.front();
-	values.pop_front();
-	b = values.front();
-	values.pop_front();
+	a = values.top();
+	values.pop();
+	b = values.top();
+	values.pop();
 	if (values.size() != 0) {
 		cout << "Error: List not empty" << endl;
 	}
@@ -347,6 +365,9 @@ int print_multiplier(int n, int k, ofstream& outfile) {
 		outfile << (2*n) - (a.length + a.shift) << "'b0, " ;
 	}
 	outfile << "l" << a.level << "_" << a.id;
+	if (a.length + a.shift > 2*n) {
+		outfile << "[" << 2*n - 1 - a.shift << ":0]";
+	}
 	if (a.shift != 0) {
 		outfile << ", " << a.shift << "'b0";
 	}
@@ -364,6 +385,9 @@ int print_multiplier(int n, int k, ofstream& outfile) {
 		outfile << (2*n) - (b.length + b.shift) << "'b0, " ;
 	}
 	outfile << "l" << b.level << "_" << b.id;
+	if (b.length + b.shift > 2*n) {
+		outfile << "[" << 2*n - 1 - b.shift << ":0]";
+	}
 	if (b.shift != 0) {
 		outfile << ", " << b.shift << "'b0";
 	}
@@ -385,10 +409,12 @@ int print_multiplier(int n, int k, ofstream& outfile) {
 	outfile << "endmodule" << endl;
 
 	cout << "Number of bits stored in registers:" << num_bits_in_reg << endl;
+	// Here we add 1 to count the CLA stage
+	cout << "Number of pipeline stages in multiplier:" << num_stages + 1 << endl;
 
-	// Return the number of stages
-	// + 1 indicates the CLA stage
-	return num_stages + 1;
+	// Return the delay of a single pipeline stage
+	// The max pipeline stage delay is (k * CSA_Delay) + Delay_to_calculate_partial_products
+	return ((k * 6) + 2);
 }
 
 int main(int argc, char** argv) {
@@ -413,16 +439,14 @@ int main(int argc, char** argv) {
 	// Print the parameterized CSA
 	print_csa(outfile);
 	
-	// Print the CLA required
+	// Print the 2*n bit CLA
 	int cla_delay = print_cla(2*n, outfile);
 	cout << "Delay of " << 2*n << " Bit CLA is " << cla_delay << endl;
 	
 	// Print the Multiplier module
-	int mult_stages = print_multiplier(n, k, outfile);
-	cout << "Number of pipeline stages in multiplier:" << mult_stages << endl;
+	int mult_delay = print_multiplier(n, k, outfile);
 	// The pipeline stage delay is the max of cla_delay and Wallace Tree pipeline stage delay
-	// The Wallace tree pipeline stage delay is (k * CSA_Delay) + Delay_to_calculate_partial_products
-	cout << "Max pipeline stage delay:" << (cla_delay > (((k * 6) + 2))? cla_delay : ((k * 6) + 2)) << endl;
+	cout << "Max pipeline stage delay:" << ((cla_delay > mult_delay)? cla_delay : mult_delay) << endl;
 
 	// Close the output file
 	outfile.close();
