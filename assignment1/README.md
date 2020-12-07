@@ -39,16 +39,17 @@ $ bash analyse.sh output/cra_results
 To compare Carry Ripple Adder and Carry Lookahead Adder, I calculated the latency it took for the result to stabilize for 100000 randomly generated test cases using both adders.
 The average latency of both Carry Ripple Adder and Carry Lookahead adder for different values of N is shown below.
 
-N	Carry Ripple	Carry Lookahead
-2	8.491273	8.491273
-4	10.208891	10.552686
-8	14.464361	13.557030
-16	18.836687	15.953534
-32	22.976565	17.999091
-64	27.048404	20.000000
-128	31.052667	22.000000
-256	35.095010	24.000000
-512	39.147677	26.000000
+|N	|Carry Ripple |	Carry Lookahead |
+|:---|:-----------|:----------------|
+|2	|8.491273	|8.491273|
+|4	|10.208891	|10.552686|
+|8	|14.464361	|13.557030|
+|16	|18.836687	|15.953534|
+|32	|22.976565	|17.999091|
+|64	|27.048404	|20.000000|
+|128	|31.052667	|22.000000|
+|256	|35.095010	|24.000000|
+|512	|39.147677	|26.000000|
 
 Observations:
 1. The average latency of Carry Ripple adder is equal to or better than that of Carry Lookahead Adder for N=2,4 but for higher values of N, Carry Lookahead Adder consistently performs better.
