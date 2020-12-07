@@ -39,11 +39,8 @@ I have considered N = 128 bits for this study. The data for 128 bit Wallace tree
 - Pipeline stage time		: The delay of the pipeline stage with max delay. This will determine the min clock cycle time at which the multiplier runs without error.
 - Number of bits in registers	: The total number of bits stored in Registers. This is the area overhead of the multiplier.
 
--------------------------------------------------
-| K	|  Num	|    Pipeline	| Number of bits|
-|	|Stages	|   stage time	|  in registers	|
-|	|	|		|    (Area)	|
--------------------------------------------------
+| K	|  Num Stages	|    Pipeline	stage time | Number of bits in registers (Area) |
+|:---|:---|:---|:---|
 |1	|12	|24		|37522		|
 |2	|7	|24		|16133		|
 |3	|5	|24		|9135		|
@@ -59,7 +56,6 @@ I have considered N = 128 bits for this study. The data for 128 bit Wallace tree
 |13	|2	|68		|1026		|
 |14	|2	|68		|1026		|
 |15	|2	|68		|1026		|
--------------------------------------------------
 
 Observations:
 1. For small values of K (upto 3), the delay of the 256 bit Carry Lookahead Adder (24 units) becomes the pipeline stage with the maximum delay. But starting from K = 4, the delay of pipeline stage consisting of Carry Save Adders starts to dominate.
@@ -79,11 +75,9 @@ Observations:
 
 - Multiplication Latency	: Time between providing input and obtaining the product on the output lines. This can be calculated as (Pipeline stage time * number of pipeline stages)
 - Operations per 1000 units	: The number of multiplication operations that are completed in 1000 units of time. This is calculated as the (1000/Pipeline stage time). This is a measure of throughput of the multiplier.
--------------------------------------------------
-| K	|Multiplication	| Operations completed	|
-|	|   Latency	|   per 1000 units	|
-|	|   (Latency)	|    (Throughput)	|
--------------------------------------------------
+
+| K	 |Multiplication Latency	| Operations completed per 1000 units (Throughput)|
+|:---|:---|:---|
 |1      |288            |41                     |
 |2      |168            |41                     |
 |3      |120            |41                     |
@@ -99,4 +93,3 @@ Observations:
 |13     |136            |14                     |
 |14     |136            |14                     |
 |15     |136            |14                     |
--------------------------------------------------
